@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <style type="text/css">
+    div {
+      position: relative;
+    }
+
+    canvas {
+      position: absolute;
+    }
+  </style>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+</head>
+
+<body>
+  <div>
+    <canvas id="canvas-circle" width="500" height="500"></canvas>
+    <canvas id="canvas-image" width="500" height="500"></canvas>
+  </div>
+</body>
+<script>
+  // canvas の取得
+  var canvas = document.querySelector('#canvas-circle');
+  var ctx_circle = canvas.getContext('2d');
+
+  var canvas_image = document.querySelector('#canvas-circle');
+  var ctx_image = canvas_image.getContext('2d');
+  //var img = new Image();
+  //img.src = "http://joumyaku.html.xdomain.jp/incarnation/jt5/5jt_005.png";
+  //ctx_image.drawImage(img, 0, 0);
+
+  $('canvas').click(threadCalc); // canvasクリック時に呼び出される関数登録
+
+  // 円の設定
+  var circles = []; //パーティクルをまとめる配列
+  var colors = ['#D0A000', '#6DD0A5', '#E084C5'];
+
+  // 円のオブジェクト
+  var Circle = function(scale, color, speed) {
+    this.scale = scale; //大きさ
+    this.color = color; //色
+    this.speed = speed; //速度
+    this.position = { // 位置
+      x: 0,
+      y: 0
+    };
+  };
+
+  // 円の描画
+  Circle.prototype.draw = function() {
+    ctx_circle.beginPath();
+    ctx_circle.arc(this.position.x, this.position.y, this.scale, 0, 2 * Math.PI, false);
+    ctx_circle.strokeStyle = this.color;
+    ctx_circle.stroke();
+  };
+
+  // 円オブジェクトの作成
+  function createCircle(x, y, scale, color) {
+    circle = new Circle(scale, color, scale / 2);
+    circle.position.x = x;
+    circle.position.y = y;
+    return circle;
+  }
+
+  // アニメーション
+  function loop() {
+    // 描画をクリア
+    ctx_circle.clearRect(0, 0, ctx_circle.canvas.width, ctx_circle.canvas.height);
+    // 円の個数だけ描画
+    for (var i = 0; i < circles.length; i++) {
+      circles[i].scale += circles[i].speed; // 円の半径増加
+      circles[i].draw(); // 描画
+      if (circles[i].scale > canvas.width) {
+        circles.splice(i, 1); // 半径がキャンバスを超えたら削除
+      }
+    }
+  }
+
+  // websocket
+  socket = new WebSocket("ws://localhost:8881/chat");
+  socket.onopen = function() {};
+
+  // 円情報を受信
+  socket.onmessage = function(jsonMsg) {
+    console.log(jsonMsg.data);
+    // 新しい円を追加
+    var msg = JSON.parse(jsonMsg.data);
+    circles.push(createCircle(msg["x"], msg["y"], msg["scale"], msg["color"]));
+  };
+
+  // canvasがクリックされたら呼び出し
+  function threadCalc(e) {
+
+    // 円情報をjson形式でまとめる
+    var msg = {};
+    msg.x = e.clientX;
+    msg.y = e.clientY;
+    msg.scale = 4;
+    msg.color = colors[~~(Math.random() * 3)];
+    jsonMsg = window.JSON.stringify(msg);
+
+    // websocketサーバに円情報送信
+    socket.send(jsonMsg);
+  }
+
+  // アニメーション
+  setInterval(function() {
+    loop();
+  }, 10)
+</script>
+
+</html>
